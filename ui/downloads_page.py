@@ -9,6 +9,8 @@ from formatting import format_date
 from paths import MUSIC_FOLDER
 from ui import plain
 from ui.page import Page
+from ui.smooth_scroll import SmoothScrollableFrame
+
 
 
 class DownloadsPage(Page):
@@ -35,7 +37,7 @@ class DownloadsPage(Page):
 					  command=self.open_folder).pack(side="right")
 
 		# Where the download cards go.
-		self.list_frame = ctk.CTkScrollableFrame(self)
+		self.list_frame = SmoothScrollableFrame(self)
 		self.list_frame.pack(fill="both", expand=True)
 
 		self.refresh()
