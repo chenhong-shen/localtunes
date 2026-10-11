@@ -4,17 +4,22 @@ Version 1.0.0
 
 Turning numbers and dates into text for display.
 
+`ui/formatting.py` re-exports this module for UI code; its behavior is the
+same as the functions documented here.
+
 ## Module functions
 
 ### `format_time(seconds)`
 
-Formats a length of time as minutes and seconds.
+Converts `seconds` with Python's `int()` and formats that value as minutes
+and seconds. Fractional parts are truncated toward zero; values are not
+explicitly checked for negativity.
 
 | | |
 |---|---|
-| `seconds` (`int` or `float`) | A length of time, in seconds. Not negative. |
-| **Returns** | `str`. The time as `m:ss`, for example `83.4` gives `'1:23'`. Parts of a second are dropped, not rounded. Minutes are not limited to 59: `3725` gives `'62:05'`. |
-| **Raises** | `TypeError` or `ValueError` if `seconds` is not a number. |
+| `seconds` | Any value accepted by `int()`. |
+| **Returns** | `str`. The converted integer as `m:ss`, for example `83.4` gives `'1:23'`. Minutes are not limited to 59: `3725` gives `'62:05'`. |
+| **Raises** | Errors from `int()` for values it cannot convert, including `TypeError`, `ValueError`, or `OverflowError`. |
 
 ---
 

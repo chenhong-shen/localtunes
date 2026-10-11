@@ -17,6 +17,7 @@ music player (`pygame.mixer.init()`), which does the actual playback.
 | | |
 |---|---|
 | **Returns** | `Player`. A player with nothing loaded. |
+| **Raises** | `pygame.error` if the mixer cannot be initialized. |
 
 #### State
 
@@ -31,6 +32,7 @@ read before it exists.
 | `started` | `bool` | `False` | Whether the loaded track has started playing. |
 | `paused` | `bool` | `False` | Whether playback is paused. |
 | `stopped` | `bool` | `False` | Whether playback was stopped on purpose. |
+| `current_song` | `str` or `None` | `None` | Full path most recently loaded successfully. Stopping playback does not clear it. |
 
 #### Why `offset` exists
 
@@ -70,6 +72,19 @@ used. Loading a new song replaces the one that was loaded before.
 | `started` | `bool` | `False` | Loading does not start playing the track automatically. |
 | `paused` | `bool` | `False` | A newly loaded track is not paused. |
 | `stopped` | `bool` | `False` | A newly loaded track is not stopped. |
+| `current_song` | `str` | `filepath` | The full path passed to `load`. |
+
+---
+
+### `Player.get_current_song()`
+
+Returns the full path most recently loaded successfully, or `None` if no
+song has been loaded. The value remains available after playback finishes or
+is stopped.
+
+| | |
+|---|---|
+| **Returns** | `str` or `None`. |
 
 ---
 
@@ -218,7 +233,10 @@ Does not change any attributes. A finished song can be played again with
 
 #### Playback states
 
-At any moment, the player is in exactly one of these states:
+These are the typical playback conditions used by the UI. The state flags
+are independent, and the low-level methods do not reject every unusual
+method sequence, so direct callers can create combinations such as both
+`paused` and `stopped` being true.
 
 | State | `is_playing()` | `is_finished()` | How you get there |
 |---|---|---|---|

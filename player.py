@@ -2,6 +2,7 @@ import os
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
 from mutagen.mp3 import MP3
+from paths import song_path
 
 
 class Player:
@@ -13,6 +14,9 @@ class Player:
 		self.started = False
 		self.paused = False
 		self.stopped = False
+		self.current_song = None
+
+	
 
 	def load(self, filepath):
 		if not isinstance(filepath, str):
@@ -28,6 +32,10 @@ class Player:
 		self.paused = False
 		self.stopped = False
 		self.offset = 0
+		self.current_song = (filepath)
+
+	def get_current_song(self):
+		return self.current_song
 
 	def play(self):
 		if not self.loaded:

@@ -60,20 +60,22 @@ on the UI thread.
 | | |
 |---|---|
 | **Returns** | `str`. The full path of the saved `.mp3` file. |
-| **Raises** | `yt_dlp.utils.DownloadError` if the download or the conversion fails, for example if there is no internet connection, the video is unavailable, or ffmpeg cannot be found in `ffmpeg_folder`. Errors are not caught, so the caller can report them. |
+| **Raises** | Errors from yt-dlp or ffmpeg when fetching or converting the audio, filesystem errors while writing it, and unexpected response-shape errors can propagate. They are not caught, so the caller can report them. |
 
 The audio is always converted to **mp3 at 192 kbps**. The original
 download (such as `webm` or `m4a`) is deleted after conversion, so only the
 `.mp3` is left in `folder`.
 
-The mp3's ID3 tags are filled in from the video's details, including:
+The `FFmpegMetadata` postprocessor writes available video metadata into the
+mp3's tags. Exact tags vary by source. Common metadata includes:
 
 | Tag | Comes from |
 |---|---|
 | `title` | The video's title. |
-| `artist` | YouTube's music artist for the video, if it has one; otherwise the channel that uploaded it. This means it is **not always the channel name**: a music video may be tagged with the artist (for example `"Bad Bunny"`) even though the channel is `"BadBunnyVEVO"`. |
+| `artist` | Available artist or uploader metadata. It may differ from the channel title returned by YouTube search. |
 | `date` | The upload date. |
 
-The app never downloads a song that is already in the library (see
-`SearchPage.on_download`), so a download normally never finds a file of the
-same name already in `folder`.
+`Download` itself does not check the library or prevent duplicate downloads.
+The Search page checks for an existing library entry and an in-progress
+download before starting this operation; callers that bypass that page must
+provide their own duplicate handling.

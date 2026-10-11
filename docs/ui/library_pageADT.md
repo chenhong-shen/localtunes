@@ -1,11 +1,11 @@
 # ui/library_page.py API
 
-Version 2.0.0
+Version 3.0.0
 
 The All Songs page: every song in the library, as a grid of boxes, with a
-button to rescan the `Music` folder. `LibraryPage` only shows songs. It
-does not play them or change the library: clicking a box calls the
-`on_play` function it was given, and clicking Rescan calls `on_rescan`.
+Refresh button that resyncs the `Music` folder. `LibraryPage` reads songs through
+`MusicService`. It does not play them or change the library: clicking a box
+calls `on_play`, and clicking Refresh calls `on_rescan`.
 
 ## Module constants
 
@@ -15,19 +15,19 @@ does not play them or change the library: clicking a box calls the
 
 ## class `LibraryPage`
 
-A song count, a Rescan button, and a scrollable grid of song boxes, newest
+A song count, a Refresh button, and a scrollable grid of song boxes, newest
 first. Subclass of `Page`.
 
 Layout, top to bottom:
 
 ```
-count of songs                                  [ Rescan ]
+count of songs                                  [ Refresh ]
 scrollable grid of song boxes
 ```
 
 ---
 
-### `LibraryPage(parent, title, title_font, nav_font, history, on_play, on_rescan)`
+### `LibraryPage(parent, title, title_font, nav_font, service, on_play, on_rescan)`
 
 Constructor. Builds the page and draws the grid once. **Main thread.**
 
@@ -36,10 +36,10 @@ Constructor. Builds the page and draws the grid once. **Main thread.**
 | `parent` | The widget the page belongs in. |
 | `title` (`str`) | The page title. |
 | `title_font` (`CTkFont`) | The font for the page title. |
-| `nav_font` (`CTkFont`) | The font for the Rescan button. |
-| `history` (`Library`) | The app's library. Only read. |
+| `nav_font` (`CTkFont`) | The font for the Refresh button. |
+| `service` (`MusicService`) | Reads library history and owns library sync workflows. |
 | `on_play` (function) | Called as `on_play(song)` when a song box is clicked. `song` is that song's library entry. |
-| `on_rescan` (function) | Called as `on_rescan()`, with no arguments, when Rescan is clicked. Expected to sync the library and call this page's `refresh()`; the page does not redraw itself afterwards. In the app, this is `App.resync`. |
+| `on_rescan` (function) | Called as `on_rescan()`, with no arguments, when Refresh is clicked. Expected to sync through `MusicService` and refresh the library views. In the app, this is `App.resync`. |
 | **Returns** | `LibraryPage`. A page showing the library's current songs. |
 
 ---
@@ -47,8 +47,8 @@ Constructor. Builds the page and draws the grid once. **Main thread.**
 ### `page.refresh()`
 
 Redraws the grid of song boxes from the current library. Called once when
-the page is built, and again after every successful download and every
-resync. **Main thread.**
+the page is built, and again after every successfully recorded download and
+every resync. **Main thread.**
 
 | | |
 |---|---|
@@ -79,3 +79,10 @@ The box shows, top to bottom:
 - its artist, in gray.
 
 Clicking anywhere on the box calls `on_play(song)`.
+
+---
+
+### `page.shuffle()`
+
+No-op placeholder that returns `None`. It does not shuffle the library or
+playback queue; shuffle is controlled by `PlayerBar.toggle_shuffle()`.
