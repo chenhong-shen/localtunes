@@ -1,0 +1,22 @@
+
+bin/ffmpeg.exe
+bin/ffprobe.exe
+
+# Python cache files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local configuration and databases
+.env
+*.db
+*.sqlite
+*.sqlite3
+
+# Downloaded music
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg

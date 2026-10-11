@@ -1,0 +1,7 @@
+yt-dlp[default]
+requests
+python-dotenv
+customtkinter
+pillow
+pygame-ce
+mutagen
