@@ -10,12 +10,21 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
 
 	SPEED = 0.5   # pixels per wheel-delta unit; a mouse notch (120) = 60 px
 
+	def _is_inside(self, widget, canvas):
+		"""True if `widget` is the canvas or one of its descendants."""
+		while widget is not None and not isinstance(widget, str):
+			if widget is canvas:
+				return True
+			widget = getattr(widget, "master", None)
+		return False
+
 	def _mouse_wheel_all(self, event):
+		canvas = self._parent_canvas
+
 		# Only react when the cursor is over this frame's contents.
-		if not self.check_if_master_is_canvas(event.widget):
+		if not self._is_inside(event.widget, canvas):
 			return
 
-		canvas = self._parent_canvas
 		if canvas.yview() == (0.0, 1.0):   # everything fits, nothing to scroll
 			return
 
@@ -23,6 +32,8 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
 		if not bbox:
 			return
 		content_height = bbox[3] - bbox[1]
+		if content_height <= 0:
+			return
 
 		top = canvas.yview()[0]
 		canvas.yview_moveto(top - (event.delta * self.SPEED) / content_height)
