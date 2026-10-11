@@ -20,3 +20,6 @@ venv/
 *.flac
 *.m4a
 *.ogg
+
+.vscode/
+*.jpg
