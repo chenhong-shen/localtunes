@@ -22,6 +22,7 @@ from paths import MUSIC_FOLDER, FFMPEG_FOLDER
 from thumbnails import save_thumbnail
 from ui import plain
 from ui.page import Page
+from ui.smooth_scroll import SmoothScrollableFrame
 
 
 class SearchPage(Page):
@@ -77,7 +78,7 @@ class SearchPage(Page):
 		self.status_label.pack(fill="x")
 
 		# Where result cards go.
-		self.results_frame = ctk.CTkScrollableFrame(self)
+		self.results_frame = SmoothScrollableFrame(self)
 		self.results_frame.pack(fill="both", expand=True)
 
 		# Start applying worker messages. poll_events re-schedules itself.
