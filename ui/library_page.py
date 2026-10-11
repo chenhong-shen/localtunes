@@ -25,9 +25,9 @@ class LibraryPage(Page):
 	calls `on_rescan()`; the app is expected to resync and call refresh().
 	"""
 
-	def __init__(self, parent, title, title_font, nav_font, history, on_play, on_rescan):
+	def __init__(self, parent, title, title_font, nav_font, service, on_play, on_rescan):
 		super().__init__(parent, title, title_font)
-		self.history = history
+		self.service = service
 		self.on_play = on_play
 		self.on_rescan = on_rescan
 
@@ -66,7 +66,7 @@ class LibraryPage(Page):
 		for widget in self.grid_frame.winfo_children():
 			widget.destroy()
 
-		songs = self.history.get_history()   # newest first
+		songs = self.service.get_history()   # newest first
 
 		count = len(songs)
 		self.count_label.configure(text=f"{count} song{'' if count == 1 else 's'}")

@@ -21,7 +21,7 @@ class PlayerBar(ctk.CTkFrame):
 	checking the player every 500 ms.
 	"""
 
-	def __init__(self, parent, player, on_missing, library):
+	def __init__(self, parent, player, on_missing, service):
 		super().__init__(parent, height=72, corner_radius=0)
 		self.player = player
 		self.grid_columnconfigure(3, weight=1)   # the slider stretches
@@ -65,7 +65,7 @@ class PlayerBar(ctk.CTkFrame):
 		)
 		self.shuffle_button.grid(row=0, column=0, padx=(0, 4))
 
-		self.library = library
+		self.service = service
 
 		# Round: corner_radius is half the size.
 		# A widget's parent can't be changed after it's created, so the
@@ -99,7 +99,7 @@ class PlayerBar(ctk.CTkFrame):
 		self.time_label = ctk.CTkLabel(self, text="0:00 / 0:00", text_color="gray", width=90)
 		self.time_label.grid(row=0, column=4, padx=(8, 16))
 
-		self.PlayQueue = PlayQueue(song_list=self.library.get_all_songs(),shuffle_enabled=False)
+		self.PlayQueue = PlayQueue(song_list=self.service.get_all_songs(),shuffle_enabled=False)
 
 		# Keep the bar up to date. refresh re-schedules itself.
 		self.after(500, self.refresh)
@@ -133,6 +133,7 @@ class PlayerBar(ctk.CTkFrame):
 
 		self.player.load(path)
 		self.player.play()
+		self.PlayQueue.set_current(song)
 
 		title = song["title"]
 		if len(title) > 30:
@@ -189,7 +190,12 @@ class PlayerBar(ctk.CTkFrame):
 
 		if self.player.is_finished():
 			if self.shuffle_enabled:
-				self.play_song(self.PlayQueue.next_song())
+				self.PlayQueue.set_songs(self.service.get_all_songs())
+				next_song = self.PlayQueue.next_song()
+				if next_song is not None:
+					self.play_song(next_song)
+				else:
+					self.play_button.configure(text="▶")
 			else:
 				self.play_button.configure(text="▶")
 			
@@ -217,6 +223,7 @@ class PlayerBar(ctk.CTkFrame):
 	def toggle_shuffle(self):
 		"""Toggle the shuffle button's visual state."""
 		self.shuffle_enabled = not self.shuffle_enabled
+		self.PlayQueue.toggle_shuffle(current_song=self._current_library_song())
 
 		if self.shuffle_enabled:
 			# turn on shuffle
@@ -224,15 +231,18 @@ class PlayerBar(ctk.CTkFrame):
 				fg_color=("gray80", "gray25"),
 				text_color=("gray10", "white")
 			)
-			self.PlayQueue.create_queue()
-			
-			
-
 		else:
 			# turn off shuffle
 			self.shuffle_button.configure(
 				fg_color="transparent",
 				text_color=("gray35", "gray75")
 			)
-			
+
+	def _current_library_song(self):
+		"""Return the library entry for the track currently loaded in Player."""
+		path = self.player.get_current_song()
+		if path is None:
+			return None
+		return next((song for song in self.service.get_all_songs()
+					 if song_path(song["filepath"]) == path), None)
 

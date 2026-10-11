@@ -19,12 +19,15 @@ Each song has three ways of being identified, each with its own job:
 | `(platform, source_id)` | `('youtube', 'ZU4eX9a6f7M')` | Where the song came from. Used to tell whether a search result is already in the library, and to name thumbnails. |
 | `filepath` | `'Song [ZU4eX9a6f7M].mp3'` | The song's file in the `Music` folder. Used by `sync` to match files to entries. Turned into a full path with `paths.song_path`. |
 
-The valid platforms are:
+The app uses these platform values:
 
 | `platform` | `source_id` |
 |---|---|
 | `'youtube'` | The YouTube video ID, as described in the `search.py` API. |
 | `'local'` | `None`. A local file has no source ID; its `filepath` identifies it. |
+
+The database does not constrain `platform` to this set; these values describe
+the app's current conventions.
 
 The library never holds two entries with the same `id`, the same
 `filepath`, or the same `(platform, source_id)`. Any number of local songs
@@ -41,8 +44,8 @@ Each entry is a `dict` with exactly these keys:
 | `'id'` | `int` | The song's number, as described under [Identifiers](#identifiers). |
 | `'platform'` | `str` | Where the song came from: `'youtube'` or `'local'`. |
 | `'source_id'` | `str` or `None` | The song's ID on its platform, or `None` for local songs. |
-| `'title'` | `str` | The song's title. Never empty. |
-| `'artist'` | `str` | The song's artist. For YouTube downloads, the channel that uploaded the video. For songs found by `sync`, the file's `artist` tag, or `'Unknown'`. Never empty. |
+| `'title'` | `str` | The song's title. The database rejects `None`; callers can technically save an empty string. `sync` supplies a filename fallback. |
+| `'artist'` | `str` | The song's artist. For songs found by `sync`, the file's `artist` tag or `'Unknown'`. The database rejects `None`; callers can technically save an empty string. |
 | `'url'` | `str` | The song's page, for example `'https://www.youtube.com/watch?v=ZU4eX9a6f7M'`. Empty (`''`) for local songs. |
 | `'filepath'` | `str` | The song's filename in the `Music` folder (not a full path). |
 | `'downloaded_at'` | `str` | When the entry was recorded, in local time, in ISO format to the second, for example `'2026-10-08T22:35:00'`. For songs found by `sync`, this is when `sync` added them, not when the file was made. |
@@ -62,10 +65,11 @@ Entries are stored in one table, `songs`, with one column per entry key:
 | `downloaded_at` | `TEXT NOT NULL` | Set by Python, not SQLite, so every date has the same format and sorts correctly. |
 | *(table rule)* | `UNIQUE (platform, source_id)` | The same video cannot be in the library twice. In SQLite, `NULL`s never clash, so local songs are not limited by this rule. |
 
-Every change is saved (committed) before the public method that made it
-returns, so a change is never lost if the app closes right afterwards. The
-only exception is `add(..., autocommit=False)`, which `sync` uses
-internally and commits itself.
+Every successful change is committed before its public method returns. The
+only exception is `add(..., autocommit=False)`, which `sync` uses internally
+and commits at the end of the batch. If an unexpected exception interrupts
+`sync` before that commit, the code does not explicitly roll back the pending
+transaction; callers should not assume the sync was all-or-nothing.
 
 The table is created only if it does not exist yet. A `library.db` from an
 older version of the app, with different columns, is not upgraded: delete
@@ -140,6 +144,18 @@ library.has("youtube", "ZU4eX9a6f7M")
 
 ---
 
+### `library.get_all_songs()`
+
+Returns every song entry without specifying an order.
+
+| | |
+|---|---|
+| **Returns** | `list` of `dict`. Entries use the format described under [Entries](#entries). Empty if the library is empty. The returned list and dictionaries are newly created. |
+
+SQLite does not guarantee the order because the query has no `ORDER BY`.
+
+---
+
 ### `library.get_history(newest=True)`
 
 Lists every entry, sorted by when it was recorded.
@@ -201,8 +217,9 @@ library.get_metadata(song_path("no_tags.mp3"))   # (None, None)
 ### `library.sync(folder)`
 
 Brings the library in step with the songs actually in `folder`, and saves
-the result. Called when the app starts, by the All Songs page's Rescan
-button, and by `App.resync` when a song's file is found to be missing.
+the result. In the app, `MusicService.sync_library()` calls this during
+startup and when `App.resync` handles the All Songs page's Refresh button or
+a missing song file.
 
 | | |
 |---|---|
@@ -257,6 +274,7 @@ and not its `id`, a renamed YouTube song keeps its thumbnail.
 
 A file that cannot be read is still added, using its filename as the title.
 
-Every removal and addition is saved together, with one commit at the end.
-This makes a large sync fast (about 0.6 s for 2,000 new files), and makes
-it all-or-nothing: if `sync` fails partway, none of its changes are saved.
+Every removal and addition is committed together after a successful scan.
+This makes a large sync fast (about 0.6 s for 2,000 new files). If an
+unexpected error occurs before the commit, the implementation does not call
+`rollback()`, so pending changes can remain in the open connection.

@@ -16,10 +16,6 @@ import queue
 import threading
 import customtkinter as ctk
 
-from search import Search
-from downloader import Download
-from paths import MUSIC_FOLDER, FFMPEG_FOLDER
-from thumbnails import save_thumbnail
 from ui import plain
 from ui.page import Page
 
@@ -32,15 +28,14 @@ class SearchPage(Page):
 		status line ("Searching...", "5 results", errors)
 		scrollable results area (one card per result)
 
-	`history` is only read (to mark songs already downloaded). When a
-	download finishes, this page calls `on_downloaded(result, filepath)`, and
-	the app records it and refreshes the other pages.
+	The injected service handles catalog and library operations. This page
+	keeps the background-worker and widget-update flow.
 	"""
 
-	def __init__(self, parent, title, title_font, nav_font, history, on_downloaded):
+	def __init__(self, parent, title, title_font, nav_font, service, on_library_changed):
 		super().__init__(parent, title, title_font)
-		self.history = history
-		self.on_downloaded = on_downloaded
+		self.service = service
+		self.on_library_changed = on_library_changed
 		self.nav_font = nav_font
 		self.plus_font = ctk.CTkFont(size=20, weight="bold")
 
@@ -111,7 +106,7 @@ class SearchPage(Page):
 		"""
 		try:
 			if platform == "YouTube":
-				results = Search(query=query, max_results=10).search_youtube()
+				results = self.service.search(query=query, platform=platform, max_results=10)
 			else:
 				raise ValueError(f"Unsupported platform: {platform}")
 			self.events.put(("search_results", results))
@@ -163,7 +158,7 @@ class SearchPage(Page):
 			btn.configure(command=lambda r=result, b=btn: self.on_download(r, b))
 			btn.grid(row=0, column=1, rowspan=2, padx=12)
 
-			if self.history.has(result["platform"], result["source_id"]):
+			if self.service.has_song(result["platform"], result["source_id"]):
 				btn.configure(state="disabled", text="✓")
 
 		self.results_frame.pack(fill="both", expand=True)
@@ -182,7 +177,7 @@ class SearchPage(Page):
 		# in self.downloading.
 		key = (result["platform"], result["source_id"])
 
-		if self.history.has(*key):
+		if self.service.has_song(*key):
 			self.status_label.configure(text=f"Already downloaded: {result['title']}")
 			button.configure(state="disabled", text="✓")
 			return
@@ -208,17 +203,10 @@ class SearchPage(Page):
 			("download_error", (result, button, message))   on any failure
 		"""
 		try:
-			filepath = Download(result["url"], MUSIC_FOLDER, FFMPEG_FOLDER).download_youtube()
+			filepath = self.service.download(result)
 		except Exception as e:
 			self.events.put(("download_error", (result, button, str(e))))
 			return
-
-		# A missing thumbnail shouldn't count as a failed download: the song
-		# is already saved, and its box just shows a placeholder instead.
-		try:
-			save_thumbnail(result["platform"], result["source_id"])
-		except Exception:
-			pass
 
 		self.events.put(("download_done", (result, button, filepath)))
 
@@ -247,12 +235,16 @@ class SearchPage(Page):
 				result, button, filepath = data
 				self.downloading.discard((result["platform"], result["source_id"]))
 
-				# The app records it in the library and refreshes its pages.
-				# This runs on the main thread, so two downloads finishing
-				# together can never write to the library at the same moment,
-				# and the library's SQLite connection is only used on the
-				# thread that created it.
-				self.on_downloaded(result, filepath)
+				# SQLite is only touched here, on the thread that created it.
+				try:
+					self.service.record_download(result, filepath)
+				except Exception as err:
+					self.status_label.configure(text=f"Could not save {result['title']}: {err}")
+					if button.winfo_exists():
+						button.configure(state="normal", text="+")
+					continue
+
+				self.on_library_changed()
 
 				self.status_label.configure(text=f"Downloaded: {result['title']}")
 				# A new search may have destroyed this card meanwhile.

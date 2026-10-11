@@ -8,6 +8,7 @@ screen lives in its own file:
 	ui/search_page.py     -> SearchPage: searching and downloading
 	ui/downloads_page.py  -> DownloadsPage: the download history
 	ui/player_bar.py      -> PlayerBar: the playback bar at the bottom
+	music_service.py      -> MusicService: app workflows between UI and backend modules
 
 and the non-UI pieces have their own files too:
 
@@ -25,7 +26,9 @@ import customtkinter as ctk
 
 from library import Library
 from player import Player
-from paths import LIBRARY_FILE, MUSIC_FOLDER
+from play_queue import PlayQueue
+from paths import LIBRARY_FILE, MUSIC_FOLDER, FFMPEG_FOLDER
+from music_service import MusicService
 from ui.page import Page
 from ui.library_page import LibraryPage
 from ui.search_page import SearchPage
@@ -59,28 +62,28 @@ class App(ctk.CTk):
 		self.nav_font = ctk.CTkFont(family="Segoe UI Variable Text", size=14)
 
 		# --- Shared state ---
-		# One history and one player for the whole app.
+		# One library/service and one player for the whole app.
 		self.library = Library(LIBRARY_FILE)
+		self.service = MusicService(self.library, MUSIC_FOLDER, FFMPEG_FOLDER)
 		# Synced before the pages are built, so their first draw already
 		# shows songs added or deleted while the app was closed.
-		self.library.sync(MUSIC_FOLDER)
+		self.service.sync_library()
 		self.player = Player()
 
 		# --- Player bar ---
 		# Built before the pages, because the All Songs page needs its
 		# play_song method.
-		self.player_bar = PlayerBar(self, self.player, on_missing=self.resync, library=self.library)
+		self.player_bar = PlayerBar(self, self.player, on_missing=self.resync, service=self.service)
 		self.player_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
 
 		# --- Pages ---
-		# Each page gets only what it needs. Pages never reach into the App;
-		# when one needs the App to do something, it calls a function it was
-		# given (on_play, on_rescan, on_downloaded, on_missing).
-		self.library_page = LibraryPage(self, "All Songs", self.title_font, self.nav_font, self.library,
+		# Pages use the service for library/search/download operations. UI-only
+		# actions are passed as callbacks instead of reaching into the App.
+		self.library_page = LibraryPage(self, "All Songs", self.title_font, self.nav_font, self.service,
 										on_play=self.player_bar.play_song, on_rescan=self.resync)
-		self.search_page = SearchPage(self, "Search", self.title_font, self.nav_font, self.library,
-									  on_downloaded=self.on_downloaded)
-		self.downloads_page = DownloadsPage(self, "Downloads", self.title_font, self.nav_font, self.library)
+		self.search_page = SearchPage(self, "Search", self.title_font, self.nav_font, self.service,
+									  on_library_changed=self.refresh_library_views)
+		self.downloads_page = DownloadsPage(self, "Downloads", self.title_font, self.nav_font, self.service)
 
 		# (sidebar text, page) in sidebar order. Playlists and Settings don't
 		# have content yet, so they're plain pages with just a title.
@@ -121,12 +124,8 @@ class App(ctk.CTk):
 		"""Brings `page` to the front, hiding the others behind it."""
 		page.tkraise()
 
-	def on_downloaded(self, result, filepath):
-		"""Records a finished download and shows it. Called by SearchPage.
-
-		Only the filename is stored; paths.song_path rebuilds the full path.
-		"""
-		self.library.add(result, os.path.basename(filepath),autocommit=True)
+	def refresh_library_views(self):
+		"""Redraw pages after the service changes the library. MAIN THREAD."""
 		self.library_page.refresh()
 		self.downloads_page.refresh()
 
@@ -144,7 +143,7 @@ class App(ctk.CTk):
 		that show it. Called by PlayerBar when a song's file is missing.
 		MAIN THREAD.
 		"""
-		self.library.sync(MUSIC_FOLDER)
+		self.service.sync_library()
 		self.library_page.refresh()
 		self.downloads_page.refresh()
 
@@ -153,4 +152,3 @@ class App(ctk.CTk):
 
 if __name__ == "__main__":
 	App().mainloop()
-	

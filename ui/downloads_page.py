@@ -21,9 +21,9 @@ class DownloadsPage(Page):
 		scrollable list (one card per download, newest first)
 	"""
 
-	def __init__(self, parent, title, title_font, nav_font, history):
+	def __init__(self, parent, title, title_font, nav_font, service):
 		super().__init__(parent, title, title_font)
-		self.history = history
+		self.service = service
 		self.nav_font = nav_font
 
 		# Toolbar row: the download count on the left, the button on the right.
@@ -51,7 +51,7 @@ class DownloadsPage(Page):
 		for widget in self.list_frame.winfo_children():
 			widget.destroy()
 
-		entries = self.history.get_download_history()   # newest first
+		entries = self.service.get_download_history()   # newest first
 
 		# Singular vs plural, so it reads "1 download" and "5 downloads".
 		count = len(entries)

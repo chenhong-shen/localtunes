@@ -1,12 +1,10 @@
 # ui/search_page.py API
 
-Version 2.0.0
+Version 3.0.0
 
-The Search page: searching YouTube, and downloading results. `SearchPage`
-uses `Search` to find videos, `Download` to download them, and
-`save_thumbnail` to save their pictures. It does not record downloads in
-the library itself: it hands each finished download to the `on_downloaded`
-function it was given.
+The Search page: searching YouTube and downloading results. `SearchPage`
+uses the injected `MusicService` for search, downloads, duplicate checks,
+and library recording. The page owns worker threads and UI event handling.
 
 ## Identifiers
 
@@ -27,10 +25,10 @@ listed under [Events](#events).
 
 - The **main thread** runs the app's main loop. It draws the window,
   handles clicks, and is the only thread that may create, read, or change
-  widgets, or use the library.
+  widgets or use the SQLite library.
 - **Worker threads** run slow work: searching and downloading. A worker never
-  touches a widget or the library. When it finishes, it puts exactly one
-  message on the page's event queue and ends.
+  touches a widget or SQLite. It calls the service for search/download work.
+  When it finishes, it puts exactly one message on the page's event queue.
 
 The main thread checks the event queue every 100 ms, in `poll_events()`, and
 applies each message to the UI. This keeps the window responsive while
@@ -48,7 +46,7 @@ Each message on the event queue is a `(kind, data)` tuple.
 |---|---|---|---|
 | `"search_results"` | `list` of result `dict`s | `search_worker` | Shows the results and the result count, re-enables the Search button. |
 | `"search_error"` | `str`. The error message. | `search_worker` | Shows the error, re-enables the Search button. |
-| `"download_done"` | `(result, button, filepath)`. `filepath` is the full path of the saved song. | `download_worker` | Marks the song as no longer downloading, calls `on_downloaded(result, filepath)`, shows a success message, changes the button to ✓. |
+| `"download_done"` | `(result, button, filepath)`. `filepath` is the full path of the saved song. | `download_worker` | Marks the song as no longer downloading, tries `service.record_download`, then calls `on_library_changed()` and shows success. If recording fails, shows an error and re-enables the button. |
 | `"download_error"` | `(result, button, str)`. The last item is the error message. | `download_worker` | Marks the song as no longer downloading, shows the error, resets the button to + so the download can be retried. |
 
 Each worker sends exactly one message: one of the two kinds for its task.
@@ -65,14 +63,14 @@ status line ("Searching...", "5 results", errors)
 scrollable results area (one card per result)
 ```
 
-**Invariant:** a `(platform, source_id)` pair is never in both the library and the set of songs
-currently downloading. A song moves from "downloading" to "in the library"
-when its download succeeds, and leaves "downloading" when it fails. Because
-of this, a song is never downloaded twice.
+The `downloading` set prevents duplicate requests for the same
+`(platform, source_id)` while this page is open. Successful downloads are
+recorded by the service on the main thread. If recording fails, the completed
+audio file remains on disk and the UI reports the library error.
 
 ---
 
-### `SearchPage(parent, title, title_font, nav_font, history, on_downloaded)`
+### `SearchPage(parent, title, title_font, nav_font, service, on_library_changed)`
 
 Constructor. Builds the page and starts checking the event queue.
 **Main thread.**
@@ -83,8 +81,8 @@ Constructor. Builds the page and starts checking the event queue.
 | `title` (`str`) | The page title. |
 | `title_font` (`CTkFont`) | The font for the page title. |
 | `nav_font` (`CTkFont`) | The font for the Search button. |
-| `history` (`Library`) | The app's library. Only read, with `has`, to mark songs already downloaded. |
-| `on_downloaded` (function) | Called as `on_downloaded(result, filepath)` on the main thread when a download finishes. `filepath` is the full path of the saved song. |
+| `service` (`MusicService`) | Handles search, downloading, duplicate checks, and recording completed downloads. |
+| `on_library_changed` (function) | Called on the main thread after a successful record so the app can refresh library views. |
 | **Returns** | `SearchPage`. A page with no results. |
 
 The only platform currently offered is `"YouTube"`. Pressing Enter in the
@@ -169,19 +167,20 @@ Downloads of different songs may run at the same time.
 
 ### `page.download_worker(result, button)`
 
-Downloads one result into `MUSIC_FOLDER` and reports the outcome.
+Asks `MusicService` to download one result into its configured music folder
+and reports the outcome.
 **Worker thread.**
 
 | | |
 |---|---|
-| `result` (`dict`) | The result to download. Its `'url'` is passed to `Download`. |
+| `result` (`dict`) | The result passed to `MusicService.download`. |
 | `button` (`CTkButton`) | The card's + button. Not used by this method; it is passed through in the event so the main thread can update it. |
 | **Returns** | `None`. Sends exactly one event: `"download_done"` on success, with the saved file's full path, or `"download_error"` on any failure. |
 | **Raises** | Nothing. Every exception is caught and reported as a `"download_error"` event. |
 
-After a successful download, also saves the song's thumbnail with
-`save_thumbnail(result["platform"], result["source_id"])`. A failed thumbnail does not count as a failed download:
-the error is ignored and `"download_done"` is still sent.
+`MusicService.download` also attempts to save the song's thumbnail. A failed
+thumbnail does not count as a failed audio download: the service ignores the
+thumbnail error and `"download_done"` is still sent.
 
 ---
 
@@ -196,9 +195,9 @@ Applies every event waiting on the event queue, as described under
 | **Returns** | `None`. |
 
 Started once, by the constructor, and runs for the life of the page.
-`on_downloaded` is only ever called here, on the main thread, so two
-downloads that finish together never write to the library at the same
-time, and the library is never used from a worker thread.
+`service.record_download` is only called here, on the main thread, so the
+SQLite connection stays on its creating thread. If recording fails, the page
+shows the error and re-enables the button.
 
 If a card's button was destroyed by a new search before its download
 finished, the library and status line are still updated, but the button is

@@ -2,10 +2,9 @@
 
 Version 2.0.0
 
-Where LocalTunes keeps its files. Every file the app saves is placed next to
-the app itself, so the app finds its data no matter which folder it is
-started from. `paths.py` only works out paths. It does not create, read, or
-check any file.
+Where LocalTunes keeps its files. App data is stored under `APP_DIR`, whether
+the program is run from source or as a PyInstaller build. `paths.py` only
+works out paths. It does not create, read, or check any file.
 
 ## Module constants
 
@@ -17,8 +16,9 @@ build.
 
 ### `MUSIC_FOLDER`
 
-`str`. `APP_DIR` joined with `"Music"`. The folder songs are saved to.
-Passed to every `Download` and to `Library.sync`.
+`str`. `APP_DIR` joined with `"Music"`. The folder songs are saved to and
+synced with the library. Passed to `MusicService`, which passes it to
+`Download` and `Library.sync`.
 
 ### `THUMBNAIL_FOLDER`
 
@@ -34,7 +34,13 @@ to `Library`.
 ### `FFMPEG_FOLDER`
 
 `str`. `APP_DIR` joined with `"bin"`. The folder holding `ffmpeg.exe` and
-`ffprobe.exe`. Passed to every `Download`.
+`ffprobe.exe`. Passed to `MusicService` and then to `Download`.
+
+### `ENV_FILE`
+
+`str`. `APP_DIR` joined with `".env"`. `search.py` loads this file to make
+`YT_API_KEY` available to YouTube searches. The path module does not create
+the file.
 
 ## Module functions
 

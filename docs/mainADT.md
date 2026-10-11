@@ -1,11 +1,11 @@
 # main.py API
 
-Version 2.2.0
+Version 2.3.0
 
 The LocalTunes main window. `App` builds the window and connects the pieces:
-the pages, the player bar, the library, and the player. `App` does not
-search, download, play, or store songs itself, and it does not draw any
-page's contents. Each piece lives in its own file:
+the pages, the player bar, the music service, and the player. `App` wires
+these pieces together; workflows that coordinate search, downloads, and the
+library live in `MusicService`. Each piece lives in its own file:
 
 | File | Holds | Documented in |
 |---|---|---|
@@ -14,6 +14,10 @@ page's contents. Each piece lives in its own file:
 | `ui/downloads_page.py` | `DownloadsPage`: the download list | `ui/downloads_pageADT.md` |
 | `ui/player_bar.py` | `PlayerBar`: the playback bar | `ui/player_barADT.md` |
 | `ui/page.py` | `Page`: the base class of every page | `ui/pageADT.md` |
+| `ui/plain.py` | Plain Tk labels and card helpers | `ui/plainADT.md` |
+| `ui/formatting.py` | Re-exports the formatting helpers | `formattingADT.md` |
+| `music_service.py` | `MusicService`: coordinates app workflows | `music_serviceADT.md` |
+| `play_queue.py` | `PlayQueue`: tracks playback order and shuffle | `play_queueADT.md` |
 | `search.py` | `Search`: finds videos on YouTube | `searchADT.md` |
 | `downloader.py` | `Download`: downloads a video's audio | `downloaderADT.md` |
 | `library.py` | `Library`: the database of songs | `libraryADT.md` |
@@ -59,16 +63,18 @@ Playlists and Settings have no content yet: they are plain `Page`s showing
 only their title.
 
 Each page is given only what it needs, and never reaches into the `App`.
-When a page needs the `App` to do something, it calls a function it was
-given (`on_play`, `on_rescan`, `on_downloaded`, `on_missing`).
+Pages receive the `MusicService` for library, search, download, and sync
+operations. They use callbacks only for UI actions such as refreshing views,
+playing a selected song, or responding to a missing file.
 
 #### State
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `library` | `Library` | The app's one library, shared by every page. |
+| `library` | `Library` | The SQLite library used by the service. |
+| `service` | `MusicService` | Coordinates data and download workflows for the UI. |
 | `player` | `Player` | The app's one player, used by the player bar. |
-| `player_bar` | `PlayerBar` | The playback bar. |
+| `player_bar` | `PlayerBar` | The playback bar, which owns the current play queue. |
 | `library_page` | `LibraryPage` | The All Songs page. |
 | `search_page` | `SearchPage` | The Search page. |
 | `downloads_page` | `DownloadsPage` | The Downloads page. |
@@ -77,8 +83,8 @@ given (`on_play`, `on_rescan`, `on_downloaded`, `on_missing`).
 
 ### `App()`
 
-Constructor. Opens the library at `LIBRARY_FILE` and syncs it with
-`MUSIC_FOLDER`, creates the player, and builds the window, the player bar,
+Constructor. Opens the library at `LIBRARY_FILE`, creates a `MusicService`,
+and asks it to sync with `MUSIC_FOLDER`. Then it creates the player and builds the window, the player bar,
 every page, and the sidebar. **Main thread.**
 
 | | |
@@ -86,12 +92,13 @@ every page, and the sidebar. **Main thread.**
 | **Returns** | `App`. A window showing the All Songs page. The window is not displayed until `mainloop()` is called. |
 | **Raises** | Any error raised by `Library` while opening or syncing the library, for example if `LIBRARY_FILE` exists but is not an SQLite database, or `MUSIC_FOLDER` cannot be read. |
 
-The library is synced before the pages are built, so each page's first
-draw already shows the synced songs, and no page has to be drawn twice.
+The service owns the workflow boundary. The SQLite library remains on the
+main thread; the service uses it for startup sync and later UI reads/writes.
 
 The player bar is built before the pages, because the All Songs page needs
 its `play_song` method. The player bar is given `resync` as its
-`on_missing` function, and the All Songs page is given it as `on_rescan`.
+`on_missing` function, and the All Songs page is given it as `on_rescan`
+(the button is labeled "Refresh").
 This is safe even though `resync` uses pages built later (the Downloads
 page), because it is only called later, after every page exists.
 
@@ -112,41 +119,28 @@ Shows one page and hides the others. **Main thread.**
 
 ---
 
-### `app.on_downloaded(result, filepath)`
+### `app.refresh_library_views()`
 
-Records a finished download in the library and redraws the pages that show
-the library. Given to `SearchPage`, which calls it when a download finishes.
-**Main thread.**
-
-| | |
-|---|---|
-| `result` (`dict`) | The downloaded search result, in the format returned by `Search.search_youtube()`: it has the `'platform'`, `'source_id'`, `'title'`, `'artist'`, and `'url'` keys `Library.add` reads. |
-| `filepath` (`str`) | The full path of the saved song. |
-| **Returns** | `None`. |
-| **Raises** | Any error raised by `Library.add`. |
-
-Only the filename is stored in the library; `paths.song_path` rebuilds the
-full path. Redraws the All Songs and Downloads pages.
-
-Must run on the main thread, because the library can only be used on the
-thread that created it.
+Redraws the All Songs and Downloads pages after `MusicService` records a
+download. Called by `SearchPage` on the main thread. It does not read or
+write the library.
 
 ---
 
 ### `app.resync()`
 
-Syncs the library with `MUSIC_FOLDER` and redraws the pages that show the
-library. **Main thread.** It runs in two cases:
+Calls `service.sync_library()` and redraws the pages that show the library.
+**Main thread.** It runs in two cases:
 
-- when the All Songs page's Rescan button is clicked (given to
+- when the All Songs page's Refresh button is clicked (given to
   `LibraryPage` as `on_rescan`);
-- when a song is clicked whose file is gone (given to `PlayerBar` as
-  `on_missing`).
+- when `PlayerBar` tries to play a song whose file is gone, whether clicked
+  in the library or selected by shuffle (`on_missing`).
 
 | | |
 |---|---|
 | **Returns** | `None`. |
-| **Raises** | Any error raised by `Library.sync`. |
+| **Raises** | Any error raised by `MusicService.sync_library` or its underlying library call. |
 
 Redraws the All Songs and Downloads pages. Must run on the main thread,
 because the library can only be used on the thread that created it.
