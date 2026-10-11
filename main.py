@@ -109,6 +109,8 @@ class App(ctk.CTk):
 			ctk.CTkButton(sidebar, text=label, font=self.nav_font, height=40,
 						  command=lambda p=page: self.show(p)).pack(padx=16, pady=8, fill="x")
 
+		
+
 		self.after(100, self.enable_double_buffering)
 
 	
@@ -145,6 +147,8 @@ class App(ctk.CTk):
 		self.library.sync(MUSIC_FOLDER)
 		self.library_page.refresh()
 		self.downloads_page.refresh()
+
+	
 
 
 if __name__ == "__main__":
