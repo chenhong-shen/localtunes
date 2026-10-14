@@ -26,7 +26,6 @@ import customtkinter as ctk
 
 from library import Library
 from player import Player
-from play_queue import PlayQueue
 from paths import LIBRARY_FILE, MUSIC_FOLDER, FFMPEG_FOLDER
 from music_service import MusicService
 from ui.page import Page
