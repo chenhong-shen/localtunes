@@ -85,8 +85,7 @@ class LibraryPage(Page):
 			box = self.make_song_box(song)
 			box.grid(row=row, column=column, padx=6, pady=6, sticky="nsew")
 
-	def shuffle(self):
-		return None
+	
 
 
 	def make_song_box(self, song):

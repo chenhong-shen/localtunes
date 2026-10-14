@@ -5,6 +5,9 @@ import os
 from downloader import Download
 from search import Search
 from thumbnails import save_thumbnail
+from urllib.parse import urlparse
+import yt_dlp
+
 
 
 class MusicService:
@@ -54,8 +57,29 @@ class MusicService:
 		except Exception:
 			# A thumbnail is optional; a completed audio download remains valid.
 			pass
-		return filepath
+		return filepath 
 
 	def record_download(self, result, filepath):
 		"""Add a completed download to SQLite. Call on the library thread."""
 		return self.library.add(result, os.path.basename(filepath), autocommit=True)
+
+	def get_url_metadata(self, url, platform):
+		# get the metadata of the url - used in direct download from urls in the search bar.
+		try:
+			info = yt_dlp.YoutubeDL({}).extract_info(url, download=False)
+		except Exception as e:
+			raise Exception(f"An error occured while fetching metadata of {url} of platform {platform}:",e)
+		
+		try: 
+			artist = info['artist']
+		except:
+			artist = info['channel']
+
+		result = {
+			'platform' : platform,
+			'source_id' : info['id'],
+			'title' : info['title'],
+			'artist' : artist,
+			'url' : url,
+		}
+		return result

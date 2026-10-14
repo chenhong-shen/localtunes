@@ -16,6 +16,8 @@ import queue
 import threading
 import customtkinter as ctk
 
+from urllib.parse import urlparse
+
 from ui import plain
 from ui.page import Page
 
@@ -78,6 +80,22 @@ class SearchPage(Page):
 		# Start applying worker messages. poll_events re-schedules itself.
 		self.after(100, self.poll_events)
 
+	# simple is youtube function
+	def is_youtube_url(self, value):
+		parsed = urlparse(value)
+		host = (parsed.hostname or "").lower()
+
+		return (
+			parsed.scheme in {"http", "https"}
+			and host in {
+				"youtube.com",
+				"www.youtube.com",
+				"m.youtube.com",
+				"music.youtube.com",
+				"youtu.be",
+			}
+		)
+
 	# ------------------------------------------------------------------
 	# Searching
 	# ------------------------------------------------------------------
@@ -88,14 +106,23 @@ class SearchPage(Page):
 		if not query:
 			return
 
-		platform = self.platform_var.get()
+		if self.is_youtube_url(query):
+				# if the searched query is a url
+				platform = 'youtube'
 
-		# Disabled until the result (or an error) arrives, so only one
-		# search runs at a time.
-		self.search_button.configure(state="disabled", text="Searching...")
-		self.status_label.configure(text=f"Searching {platform}...")
+				self.search_button.configure(state="disabled", text = "Downloading...")
+				self.status_label.configure(text="Downloading from URL...")
 
-		threading.Thread(target=self.search_worker, args=(query, platform), daemon=True).start()
+				threading.Thread(target=self.url_download, args =(query,platform),daemon=True).start()
+		else:
+			platform = self.platform_var.get()
+
+			# Disabled until the result (or an error) arrives, so only one
+			# search runs at a time.
+			self.search_button.configure(state="disabled", text="Searching...")
+			self.status_label.configure(text=f"Searching {platform}...")
+
+			threading.Thread(target=self.search_worker, args=(query, platform), daemon=True).start()
 
 	def search_worker(self, query, platform):
 		"""Runs the search. BACKGROUND THREAD: never touch widgets here.
@@ -104,9 +131,11 @@ class SearchPage(Page):
 			("search_results", list of result dicts)   on success
 			("search_error", error message string)     on any failure
 		"""
+		query = str(query)
 		try:
 			if platform == "YouTube":
 				results = self.service.search(query=query, platform=platform, max_results=10)
+				
 			else:
 				raise ValueError(f"Unsupported platform: {platform}")
 			self.events.put(("search_results", results))
@@ -136,6 +165,9 @@ class SearchPage(Page):
 			ctk.CTkLabel(self.results_frame, text="No results found", text_color="gray").pack(pady=16)
 			self.results_frame.pack(fill="both", expand=True)
 			return
+
+
+		
 
 		for result in results:
 			# The card is packed into results_frame, but the widgets inside
@@ -210,6 +242,31 @@ class SearchPage(Page):
 
 		self.events.put(("download_done", (result, button, filepath)))
 
+	def url_download(self, url, platform):
+		try:
+			result = self.service.get_url_metadata(url,platform)
+			
+		except Exception as e:
+			self.events.put(("url_metadata_error", (url, str(e))))
+			return
+
+		self.events.put(("url_metadata_resolved", result))
+
+
+	def url_download_worker(self, result):
+		try:
+			filepath = self.service.download(result)
+		except Exception as error:
+			self.events.put(("url_download_error",(result,str(error))))
+			return
+
+		self.events.put(("url_download_done",(result,filepath)))
+
+
+				
+
+
+
 	# ------------------------------------------------------------------
 	# Applying worker messages (main thread)
 	# ------------------------------------------------------------------
@@ -251,11 +308,60 @@ class SearchPage(Page):
 				if button.winfo_exists():
 					button.configure(text="✓")
 
+			
+				
+
 			elif kind == "download_error":
 				result, button, err = data
 				self.downloading.discard((result["platform"], result["source_id"]))   # free it up for a retry
 				self.status_label.configure(text=f"Download failed: {result['title']} ({err})")
 				if button.winfo_exists():
 					button.configure(state="normal", text="+")
+
+			elif kind == "url_download_done":
+				result, filepath = data
+				self.downloading.discard((result["platform"], result["source_id"]))
+
+				# SQLite is only touched here, on the thread that created it.
+				try:
+					self.service.record_download(result, filepath)
+				except Exception as err:
+					self.status_label.configure(text=f"Could not save {result['title']}: {err}")
+					self.search_button.configure(state="normal", text = "Search")
+					continue
+
+				self.on_library_changed()
+
+				self.status_label.configure(text=f"Downloaded: {result['title']}")
+				self.search_button.configure(state="normal", text = "Search")
+
+			elif kind == "url_metadata_resolved":
+				result = data
+				key = (result['platform'],result['source_id'])
+				if self.service.has_song(*key):
+					self.status_label.configure(text=f"Already downloaded: {result['title']}")
+					self.search_button.configure(state="normal", text = "Search")
+				elif key in self.downloading:
+					self.status_label.configure(text=f"Already downloading: {result['title']}")
+					self.search_button.configure(state="normal", text = "Search")
+				else:
+					self.downloading.add(key)
+					threading.Thread(target=self.url_download_worker,args=(result,),daemon=True).start()
+					
+					
+			elif kind == 'url_metadata_error':
+				url, err = data
+				self.status_label.configure(text=f"Download failed: {url} ({err})")
+				self.search_button.configure(state="normal", text = "Search")
+
+			elif kind == 'url_download_error':
+				result, err = data
+
+				self.downloading.discard((result["platform"],result["source_id"]))
+
+				self.status_label.configure(text=f"Download failed: {result['title']} ({err})")
+				self.search_button.configure(state="normal", text = "Search")
+				
+
 
 		self.after(100, self.poll_events)
