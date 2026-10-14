@@ -1,6 +1,6 @@
 # music_service.py API
 
-Version 1.0.0
+Version 1.1.0
 
 `MusicService` coordinates app workflows between the UI and the lower-level
 library, YouTube search, downloader, and thumbnail modules. Pages use this
@@ -10,10 +10,10 @@ service instead of importing those modules or calling `Library` directly.
 
 The SQLite `Library` connection is created by the app and must only be used
 on that same thread. Therefore `sync_library`, the library read methods, and
-`record_download` run on the main thread. `search` and `download` perform
-network or file work without touching SQLite and may run on worker threads.
-Worker threads must still report results to the UI through its event queue;
-they must never update widgets.
+`record_download` run on the main thread. `search`, `get_url_metadata`, and
+`download` perform network or file work without touching SQLite and may run
+on worker threads. Worker threads must still report results to the UI through
+its event queue; they must never update widgets.
 
 ## class `MusicService`
 
@@ -96,6 +96,22 @@ validation and network errors from `Search` are propagated to the caller.
 | `max_results` (`int`) | Number of results to request; `Search` accepts 1 through 10. |
 | **Returns** | `list` of search-result `dict`s. |
 | **Raises** | `ValueError` for an unsupported platform; otherwise errors from `Search` propagate. |
+
+### `service.get_url_metadata(url, platform)`
+
+Extracts metadata for a YouTube URL without downloading its audio. Uses
+`yt_dlp` and returns a result dictionary compatible with `service.download`
+and `Library.add`. May run on a worker thread; does not access SQLite.
+
+| | |
+|---|---|
+| `url` (`str`) | YouTube video URL to inspect. |
+| `platform` (`str`) | Platform identifier to store in the result, normally `"youtube"`. |
+| **Returns** | `dict` with `platform`, `source_id`, `title`, `artist`, and `url`. |
+| **Raises** | An exception if yt-dlp cannot extract the metadata or required metadata fields are unavailable. |
+
+The `artist` value is taken from yt-dlp's `artist` field, falling back to its
+`channel` field. The `url` in the result is the supplied URL.
 
 ### `service.download(result)`
 
