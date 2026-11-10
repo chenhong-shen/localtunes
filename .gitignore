@@ -23,3 +23,5 @@ venv/
 
 .vscode/
 *.jpg
+# Per-user preferences
+settings.json

@@ -36,6 +36,11 @@ to `Library`.
 `str`. `APP_DIR` joined with `"bin"`. The folder holding `ffmpeg.exe` and
 `ffprobe.exe`. Passed to `MusicService` and then to `Download`.
 
+### `SETTINGS_FILE`
+
+`str`. `APP_DIR` joined with `"settings.json"`. The user's preferences (theme, volume,
+search results). Read and written by `settings.py`.
+
 ### `ENV_FILE`
 
 `str`. `APP_DIR` joined with `".env"`. `search.py` loads this file to make

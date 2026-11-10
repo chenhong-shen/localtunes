@@ -28,6 +28,8 @@ from library import Library
 from player import Player
 from paths import LIBRARY_FILE, MUSIC_FOLDER, FFMPEG_FOLDER
 from music_service import MusicService
+import settings
+from ui.settings_page import SettingsPage
 from ui.page import Page
 from ui.library_page import LibraryPage
 from ui.search_page import SearchPage
@@ -69,6 +71,13 @@ class App(ctk.CTk):
 		self.service.sync_library()
 		self.player = Player()
 
+		# --- Settings ---
+		# Applied before the pages are built, so they're drawn in the saved
+		# theme and the first song plays at the saved volume.
+		prefs = settings.load()
+		ctk.set_appearance_mode(prefs["appearance"])
+		self.player.set_volume(prefs["volume"])
+
 		# --- Player bar ---
 		# Built before the pages, because the All Songs page needs its
 		# play_song method.
@@ -83,15 +92,20 @@ class App(ctk.CTk):
 		self.search_page = SearchPage(self, "Search", self.title_font, self.nav_font, self.service,
 									  on_library_changed=self.refresh_library_views)
 		self.downloads_page = DownloadsPage(self, "Downloads", self.title_font, self.nav_font, self.service)
+		# A theme change redraws the pages built from plain labels, which
+		# keep the colors they were created with (see ui/plain.py).
+		self.settings_page = SettingsPage(self, "Settings", self.title_font, self.nav_font,
+										  self.service, self.player,
+										  on_appearance_changed=self.refresh_library_views)
 
-		# (sidebar text, page) in sidebar order. Playlists and Settings don't
-		# have content yet, so they're plain pages with just a title.
+		# (sidebar text, page) in sidebar order. Playlists doesn't have
+		# content yet, so it's a plain page with just a title.
 		nav = [
 			("All Songs", self.library_page),
 			("Playlists", Page(self, "Playlists", self.title_font)),
 			("Search", self.search_page),
 			("Downloads", self.downloads_page),
-			("Settings", Page(self, "Settings", self.title_font)),
+			("Settings", self.settings_page),
 		]
 
 		# Every page goes in the same cell; show() decides which is on top.
@@ -113,7 +127,7 @@ class App(ctk.CTk):
 
 		
 
-		self.after(100, self.enable_double_buffering)
+		#self.after(100, self.enable_double_buffering)
 
 	
 
@@ -145,9 +159,6 @@ class App(ctk.CTk):
 		self.service.sync_library()
 		self.library_page.refresh()
 		self.downloads_page.refresh()
-
-	
-
 
 if __name__ == "__main__":
 	App().mainloop()

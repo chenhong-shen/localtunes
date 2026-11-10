@@ -18,6 +18,8 @@ import customtkinter as ctk
 
 from urllib.parse import urlparse
 
+import settings
+
 from ui import plain
 from ui.page import Page
 
@@ -134,7 +136,7 @@ class SearchPage(Page):
 		query = str(query)
 		try:
 			if platform == "YouTube":
-				results = self.service.search(query=query, platform=platform, max_results=10)
+				results = self.service.search(query=query, platform=platform, max_results=settings.load()["max_results"])
 				
 			else:
 				raise ValueError(f"Unsupported platform: {platform}")
@@ -351,7 +353,7 @@ class SearchPage(Page):
 					
 			elif kind == 'url_metadata_error':
 				url, err = data
-				self.status_label.configure(text=f"Download failed: {url} ({err})")
+				self.status_label.configure(text=f"Metadata failed: {url} ({err})")
 				self.search_button.configure(state="normal", text = "Search")
 
 			elif kind == 'url_download_error':

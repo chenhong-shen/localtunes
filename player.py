@@ -15,6 +15,9 @@ class Player:
 		self.paused = False
 		self.stopped = False
 		self.current_song = None
+		# Remembered so load() can apply it again: pygame resets the music
+		# volume to full whenever a new song is loaded.
+		self.volume = 1.0
 
 	
 
@@ -33,9 +36,16 @@ class Player:
 		self.stopped = False
 		self.offset = 0
 		self.current_song = (filepath)
+		pygame.mixer.music.set_volume(self.volume)
 
 	def get_current_song(self):
 		return self.current_song
+
+	def set_volume(self, value):
+		"""Sets the volume, from 0.0 (silent) to 1.0 (full). Kept for every
+		song loaded afterwards too."""
+		self.volume = max(0.0, min(1.0, value))
+		pygame.mixer.music.set_volume(self.volume)
 
 	def play(self):
 		if not self.loaded:
