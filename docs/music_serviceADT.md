@@ -93,7 +93,7 @@ validation and network errors from `Search` are propagated to the caller.
 |---|---|
 | `query` (`str`) | Search text. |
 | `platform` (`str`) | Currently only `"YouTube"` is accepted. |
-| `max_results` (`int`) | Number of results to request; `Search` accepts 1 through 10. |
+| `max_results` (`int`) | Number of results to request; `Search` accepts 1 through 50. |
 | **Returns** | `list` of search-result `dict`s. |
 | **Raises** | `ValueError` for an unsupported platform; otherwise errors from `Search` propagate. |
 
@@ -126,3 +126,19 @@ Records a completed download with `Library.add`, storing only the basename of
 `filepath`, and returns the inserted SQLite row ID. **Main thread only**
 because the library connection belongs to the app thread. SQLite errors are
 propagated to the caller.
+
+### Playlist methods
+
+Thin wrappers over the `Library` playlist methods of the same names; see
+the Playlists section of the `library.py` API for what each one returns.
+They all use SQLite, so they are **main thread only**.
+
+| Method | Calls |
+|---|---|
+| `service.get_playlists()` | `Library.get_playlists()` |
+| `service.create_playlist(name)` | `Library.create_playlist(name)` |
+| `service.rename_playlist(pid, name)` | `Library.rename_playlist(pid, name)` |
+| `service.delete_playlist(pid)` | `Library.delete_playlist(pid)` |
+| `service.get_playlist_songs(pid)` | `Library.get_playlist_songs(pid)` |
+| `service.add_to_playlist(pid, song_id)` | `Library.add_to_playlist(pid, song_id)` |
+| `service.remove_from_playlist(pid, song_id)` | `Library.remove_from_playlist(pid, song_id)` |

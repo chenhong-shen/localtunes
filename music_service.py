@@ -23,6 +23,21 @@ class MusicService:
 		self.music_folder = music_folder
 		self.ffmpeg_folder = ffmpeg_folder
 
+	def get_playlists(self):                      
+		return self.library.get_playlists()
+	def create_playlist(self, name):              
+		return self.library.create_playlist(name)
+	def rename_playlist(self, pid, name):         
+		self.library.rename_playlist(pid, name)
+	def delete_playlist(self, pid):               
+		self.library.delete_playlist(pid)
+	def get_playlist_songs(self, pid):            
+		return self.library.get_playlist_songs(pid)
+	def add_to_playlist(self, pid, song_id):      
+		self.library.add_to_playlist(pid, song_id)
+	def remove_from_playlist(self, pid, song_id): 
+		self.library.remove_from_playlist(pid, song_id)
+
 	def sync_library(self):
 		"""Reconcile library records with the files in the music folder."""
 		self.library.sync(self.music_folder)

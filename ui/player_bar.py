@@ -100,6 +100,10 @@ class PlayerBar(ctk.CTkFrame):
 		self.time_label.grid(row=0, column=4, padx=(8, 16))
 
 		self.PlayQueue = PlayQueue(song_list=self.service.get_all_songs(),shuffle_enabled=False)
+		# Where the next song comes from: None = the whole library, else the
+		# id of the playlist being played. An id (not a list of songs), so
+		# songs added to or removed from the playlist while it plays count.
+		self.queue_source = None
 
 		# Keep the bar up to date. refresh re-schedules itself.
 		self.after(500, self.refresh)
@@ -107,8 +111,39 @@ class PlayerBar(ctk.CTkFrame):
 
 	
 
+	def play_from_library(self, song):
+		"""Plays `song` from the All Songs page. Afterwards, the next songs
+		come from the whole library again, even if a playlist was playing."""
+		self.queue_source = None
+		self.PlayQueue.set_songs(self._queue_songs())
+		self.play_song(song)
+
+	def play_playlist(self, playlist_id, start=None):
+		"""Plays a playlist, from `start` (a song in it) or from the top.
+
+		The next songs come from this playlist until a song is played from
+		All Songs. With shuffle on and no `start`, begins at a random song.
+		Does nothing if the playlist is empty.
+		"""
+		songs = self.service.get_playlist_songs(playlist_id)
+		if not songs:
+			return
+		self.queue_source = playlist_id
+		self.PlayQueue.set_songs(songs)
+		if start is None:
+			start = self.PlayQueue.next_song()   # the first song in queue order
+		self.play_song(start)
+
+	def _queue_songs(self):
+		"""The songs the next song is picked from, read fresh each time."""
+		if self.queue_source is None:
+			return self.service.get_all_songs()
+		return self.service.get_playlist_songs(self.queue_source)
+
 	def play_song(self, song):
-		"""Plays `song`, a library entry. Called when a song box is clicked.
+		"""Plays `song`, a library entry. Used by play_from_library,
+		play_playlist, and refresh (for the next song). Doesn't change where
+		the next song comes from.
 
 		If the song's file is gone, stops playback, shows "File not found"
 		with the song's title, and calls on_missing so the app can resync.
@@ -189,16 +224,18 @@ class PlayerBar(ctk.CTkFrame):
 				self.progress.set(position / duration)
 
 		if self.player.is_finished():
-			if self.shuffle_enabled:
-				self.PlayQueue.set_songs(self.service.get_all_songs())
-				next_song = self.PlayQueue.next_song()
-				if next_song is not None:
-					self.play_song(next_song)
-				else:
-					self.play_button.configure(text="▶")
+			# Play the next song, shuffled or in order, from the library or
+			# the playlist being played. The list is re-read first, so songs
+			# added or removed meanwhile count. In order, the last song wraps
+			# around to the first.
+			self.PlayQueue.set_songs(self._queue_songs())
+			next_song = self.PlayQueue.next_song()
+			if next_song is not None:
+				self.play_song(next_song)
 			else:
+				# Nothing to play (for example, the playlist was emptied).
 				self.play_button.configure(text="▶")
-			
+
 
 		# Keep this as the last line: it schedules the next update.
 		self.after(500, self.refresh)

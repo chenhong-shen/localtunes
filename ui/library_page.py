@@ -7,6 +7,8 @@ import customtkinter as ctk
 from thumbnails import load_thumbnail
 from ui import plain
 from ui.page import Page
+import tkinter as tk
+
 
 
 # How many song boxes fit side by side.
@@ -23,13 +25,17 @@ class LibraryPage(Page):
 	Clicking a box calls `on_play` with that song's library entry, so this
 	page doesn't need to know anything about the player. Clicking Rescan
 	calls `on_rescan()`; the app is expected to resync and call refresh().
+	Right-clicking a box opens an "Add to playlist" menu; after a song is
+	added, `on_playlists_changed()` is called so the Playlists page redraws.
 	"""
 
-	def __init__(self, parent, title, title_font, nav_font, service, on_play, on_rescan):
+	def __init__(self, parent, title, title_font, nav_font, service, on_play, on_rescan,
+				 on_playlists_changed):
 		super().__init__(parent, title, title_font)
 		self.service = service
 		self.on_play = on_play
 		self.on_rescan = on_rescan
+		self.on_playlists_changed = on_playlists_changed
 
 		# Toolbar row: the song count on the left, Rescan on the right. Same
 		# layout as the Downloads page's toolbar.
@@ -85,7 +91,31 @@ class LibraryPage(Page):
 			box = self.make_song_box(song)
 			box.grid(row=row, column=column, padx=6, pady=6, sticky="nsew")
 
-	
+	def show_song_menu(self, event, song):
+		"""Right-click menu for a song box: Add to playlist > (each playlist,
+		or New playlist…). A plain tk.Menu, since customtkinter has none."""
+		menu = tk.Menu(self, tearoff=0)
+		add_menu = tk.Menu(menu, tearoff=0)
+		for playlist in self.service.get_playlists():
+			add_menu.add_command(label=playlist["name"],
+				command=lambda p=playlist: self.add_song_to(p, song))
+		add_menu.add_separator()
+		add_menu.add_command(label="New playlist…", command=lambda: self.add_song_to(None, song))
+		menu.add_cascade(label="Add to playlist", menu=add_menu)
+		menu.tk_popup(event.x_root, event.y_root)
+
+	def add_song_to(self, playlist, song):
+		"""Adds `song` to `playlist`, or to a new playlist if it's None.
+		Adding a song that's already there does nothing."""
+		if playlist is None:
+			name = ctk.CTkInputDialog(text="Playlist name:", title="New playlist").get_input()
+			if not name or not name.strip():
+				return
+			playlist_id = self.service.create_playlist(name.strip())
+		else:
+			playlist_id = playlist["id"]
+		self.service.add_to_playlist(playlist_id, song["id"])
+		self.on_playlists_changed()   # callback from main.py, so the Playlists page redraws
 
 
 	def make_song_box(self, song):
@@ -140,5 +170,6 @@ class LibraryPage(Page):
 		box.configure(cursor="hand2")
 		for widget in [box] + box.winfo_children():
 			widget.bind("<Button-1>", lambda e, s=song: self.on_play(s))
+			widget.bind("<Button-3>", lambda e, s=song: self.show_song_menu(e, s))
 
 		return box
