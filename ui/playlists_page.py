@@ -17,9 +17,9 @@ class PlaylistsPage(Page):
 		scrollable list (one card per playlist, newest first)
 
 	Detail view (open_playlist is a playlist id):
-		[ ← Back ]  name           [ Delete ] [ Rename ] [ ▶ Play ]
+		[ <- Back ]  name           [ Delete ] [ Rename ] [  Play ]
 		count of songs
-		scrollable list (one card per song, in playlist order, each with ✕)
+		scrollable list (one card per song, in playlist order, each with X
 
 	Songs are added from the All Songs page (right-click a song). Playing is
 	done through `on_play_playlist(playlist_id, start)`, so this page doesn't

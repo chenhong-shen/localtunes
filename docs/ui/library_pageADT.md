@@ -81,7 +81,8 @@ The box shows, top to bottom:
 - its artist, in gray.
 
 Clicking anywhere on the box calls `on_play(song)`. Right-clicking it calls
-`show_song_menu`: a menu with Add to playlist > each playlist, and
+`show_song_menu`, which opens a `ContextMenu` (see `ui/context_menu.py`)
+with Play, then each playlist under an "Add to playlist" heading, then
 New playlist… (which asks for a name and makes one). Adding a song that is
 already in the playlist does nothing.
 
