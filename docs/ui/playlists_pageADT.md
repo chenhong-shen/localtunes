@@ -28,7 +28,7 @@ Every method runs on the **main thread**.
 
 ---
 
-### `PlaylistsPage(parent, title, title_font, nav_font, service, on_play_playlist)`
+### `PlaylistsPage(parent, title, title_font, nav_font, service, on_play_playlist, on_playlists_changed)`
 
 Constructor. Builds the page and draws the list view once.
 
@@ -40,6 +40,7 @@ Constructor. Builds the page and draws the list view once.
 | `nav_font` (`CTkFont`) | The font for the buttons. |
 | `service` (`MusicService`) | Reads and changes playlists. |
 | `on_play_playlist` (function) | Called as `on_play_playlist(playlist_id)` when Play is clicked, and as `on_play_playlist(playlist_id, start=song)` when a song in the detail view is clicked. In the app, this is `PlayerBar.play_playlist`. |
+| `on_playlists_changed` (function) | Called as `on_playlists_changed()` after a playlist is renamed or deleted. In the app, this is `PlayerBar.show_queue_source`. |
 | **Returns** | `PlaylistsPage`. |
 
 ---
@@ -63,5 +64,5 @@ Switch to the detail view of one playlist, or back to the list view.
 | ▶ Play | `on_play_playlist(id)`. Disabled while the playlist is empty. |
 | A song card | `on_play_playlist(id, start=song)`. |
 | ✕ on a song | Removes the song from the playlist (not from the library). |
-| Rename | Asks for a new name. Blank or cancelled does nothing. |
-| Delete | Asks to confirm, then deletes the playlist (its songs stay in the library) and goes back to the list. |
+| Rename | Asks for a new name. Blank or cancelled does nothing. Calls `on_playlists_changed()`. |
+| Delete | Asks to confirm, then deletes the playlist (its songs stay in the library) and goes back to the list. Calls `on_playlists_changed()`. |

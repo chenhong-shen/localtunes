@@ -92,7 +92,8 @@ class App(ctk.CTk):
 		# Playlists is built before All Songs, because All Songs redraws it
 		# after a song is added to a playlist.
 		self.playlists_page = PlaylistsPage(self, "Playlists", self.title_font, self.nav_font, self.service,
-											on_play_playlist=self.player_bar.play_playlist)
+											on_play_playlist=self.player_bar.play_playlist,
+											on_playlists_changed=self.player_bar.show_queue_source)
 		self.library_page = LibraryPage(self, "All Songs", self.title_font, self.nav_font, self.service,
 										on_play=self.player_bar.play_from_library, on_rescan=self.resync,
 										on_playlists_changed=self.playlists_page.refresh)
