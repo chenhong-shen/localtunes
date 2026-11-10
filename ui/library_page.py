@@ -6,8 +6,8 @@ import customtkinter as ctk
 
 from thumbnails import load_thumbnail
 from ui import plain
+from ui.context_menu import ContextMenu
 from ui.page import Page
-import tkinter as tk
 
 
 
@@ -92,17 +92,26 @@ class LibraryPage(Page):
 			box.grid(row=row, column=column, padx=6, pady=6, sticky="nsew")
 
 	def show_song_menu(self, event, song):
-		"""Right-click menu for a song box: Add to playlist > (each playlist,
-		or New playlist…). A plain tk.Menu, since customtkinter has none."""
-		menu = tk.Menu(self, tearoff=0)
-		add_menu = tk.Menu(menu, tearoff=0)
+		"""Right-click menu for a song box:
+
+			▶   Play
+			─────────────
+			Add to playlist
+			    (each playlist)
+			＋  New playlist…
+
+		Playlists are listed flat under a heading, instead of in a submenu,
+		so adding a song takes one click less.
+		"""
+		menu = ContextMenu(self, event.x_root, event.y_root)
+		menu.add_command("▶   Play", lambda: self.on_play(song))
+		menu.add_separator()
+		menu.add_label("Add to playlist")
 		for playlist in self.service.get_playlists():
-			add_menu.add_command(label=playlist["name"],
-				command=lambda p=playlist: self.add_song_to(p, song))
-		add_menu.add_separator()
-		add_menu.add_command(label="New playlist…", command=lambda: self.add_song_to(None, song))
-		menu.add_cascade(label="Add to playlist", menu=add_menu)
-		menu.tk_popup(event.x_root, event.y_root)
+			menu.add_command("      " + playlist["name"],
+							 lambda p=playlist: self.add_song_to(p, song))
+		menu.add_command("＋  New playlist…", lambda: self.add_song_to(None, song))
+		menu.show()
 
 	def add_song_to(self, playlist, song):
 		"""Adds `song` to `playlist`, or to a new playlist if it's None.
