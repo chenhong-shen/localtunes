@@ -12,7 +12,7 @@ class Page(ctk.CTkFrame):
 	through. The title is placed with pack, so everything else placed directly
 	on a page must also use pack (never mix pack and grid in one container).
 
-	Pages that don't have content yet (Playlists, Settings) are plain Pages.
+	Pages that don't have content yet (Playlists) are plain Pages.
 	"""
 
 	def __init__(self, parent, title, title_font):

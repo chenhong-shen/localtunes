@@ -124,7 +124,12 @@ class LibraryPage(Page):
 					).pack(fill="x", padx=10)
 
 		# --- Artist ---
-		plain.label(box, song["artist"], size=13, muted=True, wraplength=160, cursor="hand2"
+		# Very long artist names are cut.
+		artist = song["artist"]
+		if len(artist) > 20:
+			artist = artist[:17].rstrip()+"…"
+		
+		plain.label(box, artist, size=13, muted=True, wraplength=160, cursor="hand2"
 					).pack(fill="x", padx=10, pady=(0, 10))
 
 		# --- Make the whole box clickable ---

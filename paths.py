@@ -28,6 +28,9 @@ LIBRARY_FILE = os.path.join(APP_DIR, "library.db")
 # ffmpeg.exe and ffprobe.exe. Passed to Download.
 FFMPEG_FOLDER = os.path.join(APP_DIR, "bin")
 
+# Settings file
+SETTINGS_FILE = os.path.join(APP_DIR, "settings.json")
+
 # .env file, passed to Search
 ENV_FILE = os.path.join(APP_DIR, ".env")
 
