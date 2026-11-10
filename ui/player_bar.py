@@ -37,16 +37,25 @@ class PlayerBar(ctk.CTkFrame):
 
 		# --- Now playing: title and artist ---
 		# A fixed-width frame, so long titles can't push the controls around.
-		info = ctk.CTkFrame(self, fg_color="transparent", width=220, height=48)
-		info.grid(row=0, column=1, padx=(10, 16), pady=12, sticky="w")
+		# Three lines: title, artist, and where the songs come from. Each label
+		# has an explicit height: a CTkLabel is 28 px tall by default, and
+		# anything that doesn't fit in the fixed-size frame is cut off.
+		info = ctk.CTkFrame(self, fg_color="transparent", width=220, height=56)
+		info.grid(row=0, column=1, padx=(10, 16), pady=8, sticky="w")
 		info.grid_propagate(False)   # keep the fixed size instead of shrinking to fit
 
-		self.title_label = ctk.CTkLabel(info, text="Nothing playing", anchor="w",
+		self.title_label = ctk.CTkLabel(info, text="Nothing playing", anchor="w", height=20,
 										font=ctk.CTkFont(family="Segoe UI Variable Text", size=13, weight="bold"))
 		self.title_label.grid(row=0, column=0, sticky="w")
 
-		self.artist_label = ctk.CTkLabel(info, text="", text_color="gray", anchor="w")
+		self.artist_label = ctk.CTkLabel(info, text="", text_color="gray", anchor="w", height=18)
 		self.artist_label.grid(row=1, column=0, sticky="w")
+
+		# "Playing from All Songs" or "Playing from <playlist>". Empty until
+		# something plays. Set by show_queue_source.
+		self.source_label = ctk.CTkLabel(info, text="", text_color="gray", anchor="w", height=14,
+										 font=ctk.CTkFont(family="Segoe UI Variable Text", size=11))
+		self.source_label.grid(row=2, column=0, sticky="w")
 
 		# --- Play / pause and shuffle ---
 		# Keep the controls in their own frame so the buttons don't overlap.
@@ -117,6 +126,7 @@ class PlayerBar(ctk.CTkFrame):
 		self.queue_source = None
 		self.PlayQueue.set_songs(self._queue_songs())
 		self.play_song(song)
+		self.show_queue_source()
 
 	def play_playlist(self, playlist_id, start=None):
 		"""Plays a playlist, from `start` (a song in it) or from the top.
@@ -133,6 +143,31 @@ class PlayerBar(ctk.CTkFrame):
 		if start is None:
 			start = self.PlayQueue.next_song()   # the first song in queue order
 		self.play_song(start)
+		self.show_queue_source()
+
+	def show_queue_source(self):
+		"""Shows where the next song comes from, under the artist:
+		"Playing from All Songs" or "Playing from <playlist name>".
+
+		Called when the source changes (play_from_library, play_playlist),
+		and by the app after a playlist is renamed or deleted. Not called by
+		play_song, because the source doesn't change from song to song.
+		Does nothing until a song has been played, so the line stays empty
+		under "Nothing playing".
+		"""
+		if not self.player.loaded:
+			return
+		if self.queue_source is None:
+			name = "All Songs"
+		else:
+			# Looked up fresh, so a renamed playlist shows its new name.
+			playlist = next((p for p in self.service.get_playlists()
+							 if p["id"] == self.queue_source), None)
+			name = playlist["name"] if playlist else "a deleted playlist"
+
+		if len(name) > 24:
+			name = name[:23] + "…"
+		self.source_label.configure(text=f"Playing from {name}")
 
 	def _queue_songs(self):
 		"""The songs the next song is picked from, read fresh each time."""

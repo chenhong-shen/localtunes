@@ -23,14 +23,18 @@ class PlaylistsPage(Page):
 
 	Songs are added from the All Songs page (right-click a song). Playing is
 	done through `on_play_playlist(playlist_id, start)`, so this page doesn't
-	need to know anything about the player.
+	need to know anything about the player. After a playlist is renamed or
+	deleted, `on_playlists_changed()` is called, so the player bar can show
+	the new name.
 	"""
 
-	def __init__(self, parent, title, title_font, nav_font, service, on_play_playlist):
+	def __init__(self, parent, title, title_font, nav_font, service, on_play_playlist,
+				 on_playlists_changed):
 		super().__init__(parent, title, title_font)
 		self.service = service
 		self.nav_font = nav_font
 		self.on_play_playlist = on_play_playlist
+		self.on_playlists_changed = on_playlists_changed
 		# Which view is showing: None = the list, else the open playlist's id.
 		# An id (not the playlist dict) so a rename shows up on the next refresh.
 		self.open_playlist = None
@@ -188,6 +192,7 @@ class PlaylistsPage(Page):
 			return
 		self.service.rename_playlist(playlist["id"], name)
 		self.refresh()
+		self.on_playlists_changed()
 
 	def delete(self, playlist):
 		# Deleting can't be undone, so ask first. The songs stay in the library.
@@ -198,6 +203,7 @@ class PlaylistsPage(Page):
 		self.service.delete_playlist(playlist["id"])
 		self.open_playlist = None
 		self.refresh()
+		self.on_playlists_changed()
 
 	def remove_song(self, playlist_id, song):
 		self.service.remove_from_playlist(playlist_id, song["id"])

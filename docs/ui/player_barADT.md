@@ -16,7 +16,7 @@ Subclass of `customtkinter.CTkFrame`.
 Layout, left to right:
 
 ```
-[ art ] [ title / artist ]  ( ▶ )  [ ========o-------- ]  0:00 / 0:00
+[ art ] [ title / artist / source ]  ( ▶ )  [ ========o-------- ]  0:00 / 0:00
 ```
 
 The bar keeps itself up to date by checking the player every 500 ms, in
@@ -65,6 +65,18 @@ Sets `queue_source` to `playlist_id` and plays `start` (a song in the
 playlist), or the first song in queue order if `start` is `None`. With
 shuffle on, that first song is random. Does nothing if the playlist is
 empty. Given to `PlaylistsPage` as its `on_play_playlist` function.
+
+---
+
+### `bar.show_queue_source()`
+
+Sets the small gray line under the artist to "Playing from All Songs" or
+"Playing from <playlist name>" (names over 24 characters are cut with "…"),
+from `queue_source`. The playlist's name is looked up each time, so a rename
+shows; a playlist that no longer exists shows as "a deleted playlist". Does
+nothing until a song has been played. Called by `play_from_library` and
+`play_playlist`, and given to `PlaylistsPage` as its `on_playlists_changed`
+function so renames and deletes show right away.
 
 ---
 
