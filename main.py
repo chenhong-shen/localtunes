@@ -5,8 +5,10 @@ This file only builds the window and connects the pieces. Each part of the
 screen lives in its own file:
 
 	ui/library_page.py    -> LibraryPage: the All Songs grid
+	ui/playlists_page.py  -> PlaylistsPage: playlists and their songs
 	ui/search_page.py     -> SearchPage: searching and downloading
 	ui/downloads_page.py  -> DownloadsPage: the download history
+	ui/settings_page.py   -> SettingsPage: theme, volume and search options
 	ui/player_bar.py      -> PlayerBar: the playback bar at the bottom
 	music_service.py      -> MusicService: app workflows between UI and backend modules
 
@@ -30,8 +32,8 @@ from paths import LIBRARY_FILE, MUSIC_FOLDER, FFMPEG_FOLDER
 from music_service import MusicService
 import settings
 from ui.settings_page import SettingsPage
-from ui.page import Page
 from ui.library_page import LibraryPage
+from ui.playlists_page import PlaylistsPage
 from ui.search_page import SearchPage
 from ui.downloads_page import DownloadsPage
 from ui.player_bar import PlayerBar
@@ -87,8 +89,13 @@ class App(ctk.CTk):
 		# --- Pages ---
 		# Pages use the service for library/search/download operations. UI-only
 		# actions are passed as callbacks instead of reaching into the App.
+		# Playlists is built before All Songs, because All Songs redraws it
+		# after a song is added to a playlist.
+		self.playlists_page = PlaylistsPage(self, "Playlists", self.title_font, self.nav_font, self.service,
+											on_play_playlist=self.player_bar.play_playlist)
 		self.library_page = LibraryPage(self, "All Songs", self.title_font, self.nav_font, self.service,
-										on_play=self.player_bar.play_song, on_rescan=self.resync)
+										on_play=self.player_bar.play_from_library, on_rescan=self.resync,
+										on_playlists_changed=self.playlists_page.refresh)
 		self.search_page = SearchPage(self, "Search", self.title_font, self.nav_font, self.service,
 									  on_library_changed=self.refresh_library_views)
 		self.downloads_page = DownloadsPage(self, "Downloads", self.title_font, self.nav_font, self.service)
@@ -98,11 +105,10 @@ class App(ctk.CTk):
 										  self.service, self.player,
 										  on_appearance_changed=self.refresh_library_views)
 
-		# (sidebar text, page) in sidebar order. Playlists doesn't have
-		# content yet, so it's a plain page with just a title.
+		# (sidebar text, page) in sidebar order.
 		nav = [
 			("All Songs", self.library_page),
-			("Playlists", Page(self, "Playlists", self.title_font)),
+			("Playlists", self.playlists_page),
 			("Search", self.search_page),
 			("Downloads", self.downloads_page),
 			("Settings", self.settings_page),
@@ -141,6 +147,7 @@ class App(ctk.CTk):
 		"""Redraw pages after the service changes the library. MAIN THREAD."""
 		self.library_page.refresh()
 		self.downloads_page.refresh()
+		self.playlists_page.refresh()
 
 	def enable_double_buffering(self):
 		# Ask Windows to draw the window off-screen first, to reduce flicker.
@@ -159,6 +166,7 @@ class App(ctk.CTk):
 		self.service.sync_library()
 		self.library_page.refresh()
 		self.downloads_page.refresh()
+		self.playlists_page.refresh()
 
 if __name__ == "__main__":
 	App().mainloop()

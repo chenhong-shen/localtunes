@@ -22,6 +22,23 @@ class Library:
 			downloaded_at TEXT NOT NULL,
 			UNIQUE (platform, source_id)
 		)""")
+		# Without this, SQLite ignores ON DELETE CASCADE.
+		self.conn.execute("PRAGMA foreign_keys = ON")
+
+		self.conn.execute("""
+		CREATE TABLE IF NOT EXISTS playlists (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)""")
+
+		self.conn.execute("""
+		CREATE TABLE IF NOT EXISTS playlist_songs (
+			playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+			song_id     INTEGER NOT NULL REFERENCES songs(id)     ON DELETE CASCADE,
+			position    INTEGER NOT NULL,
+			PRIMARY KEY (playlist_id, song_id)
+		)""")
 		self.conn.commit()
 
 	def add(self, result, filepath, autocommit=True):
@@ -82,7 +99,52 @@ class Library:
 				return (None, None)
 		except:
 			return (None, None)
-		
+
+	def create_playlist(self, name):
+		cur = self.conn.execute("INSERT INTO playlists (name, created_at) VALUES (?, ?)",
+								(name, datetime.now().isoformat(timespec="seconds")))
+		self.conn.commit()
+		return cur.lastrowid
+
+	def rename_playlist(self, playlist_id, name):
+		self.conn.execute("UPDATE playlists SET name = ? WHERE id = ?", (name, playlist_id))
+		self.conn.commit()
+
+	def delete_playlist(self, playlist_id):
+		self.conn.execute("DELETE FROM playlists WHERE id = ?", (playlist_id,))
+		self.conn.commit()
+
+	def get_playlists(self):
+		"""Every playlist with how many songs it has, newest first."""
+		rows = self.conn.execute("""
+			SELECT p.*, COUNT(ps.song_id) AS song_count
+			FROM playlists p LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+			GROUP BY p.id ORDER BY p.created_at DESC
+		""").fetchall()
+		return [dict(r) for r in rows]
+
+	def get_playlist_songs(self, playlist_id):
+		"""The playlist's songs in order, as normal song dicts."""
+		rows = self.conn.execute("""
+			SELECT s.* FROM songs s JOIN playlist_songs ps ON ps.song_id = s.id
+			WHERE ps.playlist_id = ? ORDER BY ps.position
+		""", (playlist_id,)).fetchall()
+		return [dict(r) for r in rows]
+
+	def add_to_playlist(self, playlist_id, song_id):
+		"""Adds a song at the end. Does nothing if it's already there."""
+		self.conn.execute("""
+			INSERT OR IGNORE INTO playlist_songs (playlist_id, song_id, position)
+			VALUES (?, ?, (SELECT COALESCE(MAX(position), -1) + 1
+						FROM playlist_songs WHERE playlist_id = ?))
+		""", (playlist_id, song_id, playlist_id))
+		self.conn.commit()
+
+	def remove_from_playlist(self, playlist_id, song_id):
+		self.conn.execute("DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?",
+						(playlist_id, song_id))
+		self.conn.commit()
+			
 
 	def sync(self, folder):
 		os.makedirs(folder, exist_ok=True)

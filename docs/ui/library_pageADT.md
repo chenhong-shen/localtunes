@@ -5,7 +5,8 @@ Version 3.0.0
 The All Songs page: every song in the library, as a grid of boxes, with a
 Refresh button that resyncs the `Music` folder. `LibraryPage` reads songs through
 `MusicService`. It does not play them or change the library: clicking a box
-calls `on_play`, and clicking Refresh calls `on_rescan`.
+calls `on_play`, clicking Refresh calls `on_rescan`, and right-clicking a
+box opens an Add to playlist menu.
 
 ## Module constants
 
@@ -27,7 +28,7 @@ scrollable grid of song boxes
 
 ---
 
-### `LibraryPage(parent, title, title_font, nav_font, service, on_play, on_rescan)`
+### `LibraryPage(parent, title, title_font, nav_font, service, on_play, on_rescan, on_playlists_changed)`
 
 Constructor. Builds the page and draws the grid once. **Main thread.**
 
@@ -40,6 +41,7 @@ Constructor. Builds the page and draws the grid once. **Main thread.**
 | `service` (`MusicService`) | Reads library history and owns library sync workflows. |
 | `on_play` (function) | Called as `on_play(song)` when a song box is clicked. `song` is that song's library entry. |
 | `on_rescan` (function) | Called as `on_rescan()`, with no arguments, when Refresh is clicked. Expected to sync through `MusicService` and refresh the library views. In the app, this is `App.resync`. |
+| `on_playlists_changed` (function) | Called as `on_playlists_changed()` after a song is added to a playlist from the right-click menu. In the app, this is `PlaylistsPage.refresh`. |
 | **Returns** | `LibraryPage`. A page showing the library's current songs. |
 
 ---
@@ -78,7 +80,10 @@ The box shows, top to bottom:
 - its title in bold, shortened with "…" past 60 characters;
 - its artist, in gray.
 
-Clicking anywhere on the box calls `on_play(song)`.
+Clicking anywhere on the box calls `on_play(song)`. Right-clicking it calls
+`show_song_menu`: a menu with Add to playlist > each playlist, and
+New playlist… (which asks for a name and makes one). Adding a song that is
+already in the playlist does nothing.
 
 ---
 

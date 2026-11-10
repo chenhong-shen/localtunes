@@ -17,8 +17,9 @@ class Search:
 		if isinstance(max_results, bool) or not isinstance(max_results, int):
 			raise TypeError("max_results must be an integer.")
 
-		if not 1 <= max_results <= 10:
-			raise ValueError("max_results must be between 1 and 10")
+		# 50 is the most the YouTube API returns in one request.
+		if not 1 <= max_results <= 50:
+			raise ValueError("max_results must be between 1 and 50")
 
         
 		# query is what is being searched up

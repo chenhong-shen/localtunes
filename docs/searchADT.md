@@ -41,9 +41,9 @@ Constructor. Creates a search for a query.
 | | |
 |---|---|
 | `query` (`str`) | What to search for. Leading and trailing whitespace is removed; the remaining text must be non-empty. |
-| `max_results` (`int`) | Maximum number of results to return. Must be an integer from 1 to 10; `bool` is rejected. |
+| `max_results` (`int`) | Maximum number of results to return. Must be an integer from 1 to 50 (the most the YouTube API returns); `bool` is rejected. |
 | **Returns** | `Search`. A search that has not been executed yet. |
-| **Raises** | `TypeError` if `query` is not a `str`, or if `max_results` is not an integer (including `bool`). `ValueError` if the stripped query is empty or `max_results` is outside 1 to 10. |
+| **Raises** | `TypeError` if `query` is not a `str`, or if `max_results` is not an integer (including `bool`). `ValueError` if the stripped query is empty or `max_results` is outside 1 to 50. |
 
 ---
 

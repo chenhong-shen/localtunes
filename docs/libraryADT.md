@@ -71,7 +71,19 @@ and commits at the end of the batch. If an unexpected exception interrupts
 `sync` before that commit, the code does not explicitly roll back the pending
 transaction; callers should not assume the sync was all-or-nothing.
 
-The table is created only if it does not exist yet. A `library.db` from an
+Playlists are stored in two more tables. The connection turns on
+`PRAGMA foreign_keys`, because SQLite ignores `ON DELETE CASCADE` without it.
+
+| Table | Columns | Why |
+|---|---|---|
+| `playlists` | `id INTEGER PRIMARY KEY AUTOINCREMENT`, `name TEXT NOT NULL`, `created_at TEXT NOT NULL` | One row per playlist. Names don't have to be unique. |
+| `playlist_songs` | `playlist_id` → `playlists(id)`, `song_id` → `songs(id)`, both `ON DELETE CASCADE`; `position INTEGER NOT NULL`; `PRIMARY KEY (playlist_id, song_id)` | Which songs are in which playlist, in order. Deleting a playlist, or a song (for example by `sync`), removes its rows here too. A song can be in a playlist only once. |
+
+Because playlists refer to a song's `id`, a song whose file is renamed or
+moved leaves its playlists: `sync` deletes the old entry and adds the file
+again with a new `id`.
+
+The tables are created only if they do not exist yet. A `library.db` from an
 older version of the app, with different columns, is not upgraded: delete
 it, and `sync` rebuilds the library from the `Music` folder.
 
@@ -278,3 +290,22 @@ Every removal and addition is committed together after a successful scan.
 This makes a large sync fast (about 0.6 s for 2,000 new files). If an
 unexpected error occurs before the commit, the implementation does not call
 `rollback()`, so pending changes can remain in the open connection.
+
+---
+
+## Playlists
+
+Each playlist is a `dict` with the keys `'id'` (`int`), `'name'` (`str`),
+`'created_at'` (`str`, ISO format to the second, like `downloaded_at`) and,
+from `get_playlists` only, `'song_count'` (`int`). Every method commits
+before returning. **Main thread**, like the rest of `Library`.
+
+| Method | Returns | What it does |
+|---|---|---|
+| `library.create_playlist(name)` | `int`, the new playlist's `id` | Makes an empty playlist. |
+| `library.rename_playlist(playlist_id, name)` | `None` | Renames a playlist. Does nothing if there is no such playlist. |
+| `library.delete_playlist(playlist_id)` | `None` | Deletes a playlist. Its songs stay in the library. |
+| `library.get_playlists()` | `list` of playlist `dict`s, newest first | Every playlist, with `'song_count'`. |
+| `library.get_playlist_songs(playlist_id)` | `list` of entries, in playlist order | The playlist's songs, as the same entry `dict`s `get_all_songs` returns. Empty for an unknown playlist. |
+| `library.add_to_playlist(playlist_id, song_id)` | `None` | Adds a song at the end. Does nothing if it is already there. Raises `sqlite3.IntegrityError` if the playlist or song doesn't exist. |
+| `library.remove_from_playlist(playlist_id, song_id)` | `None` | Removes a song from a playlist. Positions of the other songs are not renumbered; only their order matters. |

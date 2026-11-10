@@ -4,7 +4,8 @@ Version 2.0.0
 
 The playback bar along the bottom of the window. `PlayerBar` shows what is
 playing and controls the app's `Player`. It does not choose what to play:
-it plays whatever song it is given in `play_song`. It reads the available
+it plays whatever song it is given, and picks the next song from either
+the whole library or the playlist being played. It reads the available
 songs through `MusicService`. It does not change the library: when a song's
 file is missing, it calls the `on_missing` function it was given.
 
@@ -30,6 +31,7 @@ The bar keeps itself up to date by checking the player every 500 ms, in
 | `on_missing` | function | The given function | Called when a song passed to `play_song` has a missing file. |
 | `shuffle_enabled` | `bool` | `False` | Whether automatic next-track playback uses the shuffled queue. |
 | `PlayQueue` | `PlayQueue` | Queue made from the service's current songs | Tracks song order and current song. |
+| `queue_source` | `int` or `None` | `None` | Where the next song comes from: `None` for the whole library, or the `id` of the playlist being played. Set by `play_from_library` and `play_playlist`. |
 | `user_seeking` | `bool` | `False` | `True` while the mouse button is held down on the progress slider. While it is `True`, `refresh()` does not move the slider or change the time, so they don't jump while being dragged. |
 
 ---
@@ -49,10 +51,28 @@ Constructor. Builds the bar, showing "Nothing playing", and starts
 
 ---
 
+### `bar.play_from_library(song)`
+
+Sets `queue_source` to `None` and plays `song` with `play_song`, so the
+next songs come from the whole library. Given to `LibraryPage` as its
+`on_play` function.
+
+---
+
+### `bar.play_playlist(playlist_id, start=None)`
+
+Sets `queue_source` to `playlist_id` and plays `start` (a song in the
+playlist), or the first song in queue order if `start` is `None`. With
+shuffle on, that first song is random. Does nothing if the playlist is
+empty. Given to `PlaylistsPage` as its `on_play_playlist` function.
+
+---
+
 ### `bar.play_song(song)`
 
-Loads and plays a song, and shows its details. Given to `LibraryPage` as its
-`on_play` function, and called by the shuffle queue when a track finishes.
+Loads and plays a song, and shows its details. Used by `play_from_library`,
+`play_playlist`, and `refresh` (for the next song). Does not change
+`queue_source`.
 
 | | |
 |---|---|
@@ -117,9 +137,11 @@ for the life of the bar.
 
 The time is shown as `"<position> / <length>"`, formatted with
 `format_time`. While `user_seeking` is `True`, the time and slider are left
-alone. When the song finishes with shuffle enabled, the next queue entry is
-played automatically. With shuffle disabled, playback stops and the button
-changes back to ▶.
+alone. When the song finishes, the next song is played automatically, from the
+songs `queue_source` points to (re-read each time, so changes made while
+playing count). With shuffle off, songs play in order and the last one wraps
+around to the first. If there is nothing to play, the button changes back
+to ▶.
 
 ---
 

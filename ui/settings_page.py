@@ -30,7 +30,7 @@ class SettingsPage(Page):
 		# --- Search results ---
 		row = self._row("Search results")
 		self.max_results = ctk.CTkOptionMenu(
-			row, values=[str(n) for n in range(1, 11)], command=self.set_max_results)
+			row, values=[str(n) for n in range(5, 21, 5)], command=self.set_max_results)
 		self.max_results.pack(side="right")
 
 		self.refresh()

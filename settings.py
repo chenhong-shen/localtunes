@@ -3,7 +3,6 @@ from paths import SETTINGS_FILE
 
 DEFAULTS = {
 	"appearance" : "System",
-	"use_custom_background" : False,
 	"volume" : 1,
 	"max_results" : 10
 }
