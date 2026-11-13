@@ -12,14 +12,7 @@ from play_queue import PlayQueue
 
 
 class PlayerBar(ctk.CTkFrame):
-	"""Shows what's playing and controls playback.
-
-	Layout, left to right:
-		[ art ] [ title / artist ]  ( ▶ )  [ ========o-------- ]  0:00 / 0:00
-
-	`player` is the app's Player. The bar keeps itself up to date by
-	checking the player every 500 ms.
-	"""
+	"""Shows what's playing and controls playback."""
 
 	def __init__(self, parent, player, on_missing, service):
 		super().__init__(parent, height=72, corner_radius=0)
